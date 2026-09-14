@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --color-fundo: #fafafa;
+  --color-superficie: #ffffff;
+  --color-borda: #e4e4e7;
+  --color-texto: #18181b;
+  --color-suave: #71717a;
+  --color-marca: #4f46e5;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background: var(--color-fundo);
+  color: var(--color-texto);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-fundo: #09090b;
+    --color-superficie: #131316;
+    --color-borda: #27272a;
+    --color-texto: #fafafa;
+    --color-suave: #a1a1aa;
+  }
+}
+
+/* ---- Componentes reutilizados ---- */
+
+@layer components {
+  .cartao {
+    background: var(--color-superficie);
+    border: 1px solid var(--color-borda);
+    border-radius: 0.875rem;
+  }
+
+  .campo {
+    width: 100%;
+    background: var(--color-superficie);
+    border: 1px solid var(--color-borda);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-texto);
+    outline: none;
+  }
+
+  .campo:focus {
+    border-color: var(--color-marca);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-marca) 20%, transparent);
+  }
+
+  .rotulo {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--color-suave);
+    margin-bottom: 0.375rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: opacity 0.15s ease, background 0.15s ease;
+  }
+
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn-principal {
+    background: var(--color-marca);
+    color: #fff;
+  }
+
+  .btn-principal:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .btn-secundario {
+    background: var(--color-superficie);
+    border-color: var(--color-borda);
+    color: var(--color-texto);
+  }
+
+  .btn-secundario:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-texto) 6%, transparent);
+  }
+
+  .btn-perigo {
+    background: transparent;
+    border-color: color-mix(in srgb, #dc2626 40%, transparent);
+    color: #dc2626;
+  }
+
+  .btn-perigo:hover:not(:disabled) {
+    background: color-mix(in srgb, #dc2626 10%, transparent);
+  }
+
+  .etiqueta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+}

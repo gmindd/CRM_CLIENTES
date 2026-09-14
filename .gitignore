@@ -1,0 +1,22 @@
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Ambiente / segredos
+.env
+.env.local
+.env*.local
+
+# Base de dados (nunca versionar dados de clientes)
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
+
+.DS_Store
+npm-debug.log*

@@ -1,0 +1,30 @@
+# Alternativa ao Docker: correr o CRM diretamente com systemd.
+# Copiar para /etc/systemd/system/crm.service
+#   systemctl daemon-reload && systemctl enable --now crm
+
+[Unit]
+Description=CRM Clientes (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/crm
+EnvironmentFile=/var/www/crm/.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/usr/bin/node /var/www/crm/.next/standalone/server.js
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/crm.log
+StandardError=append:/var/log/crm.log
+
+# Reforço de segurança
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/www/crm/data
+
+[Install]
+WantedBy=multi-user.target
