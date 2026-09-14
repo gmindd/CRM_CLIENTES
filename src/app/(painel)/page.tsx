@@ -27,15 +27,10 @@ export default async function Painel() {
           href="/clientes"
         />
         <CartaoEstatistica
-          titulo="Valor dos projetos"
-          valor={formatMoeda(stats.valor_total_projetos)}
-          nota={`${formatMoeda(stats.valor_em_proposta)} ainda em proposta`}
-        />
-        <CartaoEstatistica
           titulo="Anuidades / ano"
           valor={formatMoeda(stats.receita_anual_recorrente)}
           nota="Receita recorrente de clientes ativos"
-          href="/clientes?anuidade=1"
+          href="/clientes?anuidade=1&ordem=pagamento"
         />
         <CartaoEstatistica
           titulo="Pagamentos a chegar"
@@ -46,85 +41,91 @@ export default async function Painel() {
               : "dentro da janela de alerta"
           }
           destaque={
-            stats.pagamentos_vencidos > 0 ? "perigo" : stats.pagamentos_a_chegar > 0 ? "aviso" : "normal"
+            stats.pagamentos_vencidos > 0
+              ? "perigo"
+              : stats.pagamentos_a_chegar > 0
+                ? "aviso"
+                : "normal"
           }
+        />
+        <CartaoEstatistica
+          titulo="Recebido (12 meses)"
+          valor={formatMoeda(stats.recebido_12_meses)}
+          nota="Pagamentos registados nas fichas"
         />
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-3">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-semibold">Próximos pagamentos</h2>
-            <Link href="/clientes?anuidade=1&ordem=pagamento" className="text-sm text-[var(--color-marca)]">
-              Ver todos
-            </Link>
-          </div>
+      <section>
+        <h2 className="mb-3 font-semibold">Valor dos projetos</h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <CartaoEstatistica
+            titulo="Concluídos"
+            valor={formatMoeda(stats.valor_concluido)}
+            nota={`${stats.por_fase.concluido} ${
+              stats.por_fase.concluido === 1 ? "projeto entregue" : "projetos entregues"
+            }`}
+            href="/clientes?fase=concluido"
+          />
+          <CartaoEstatistica
+            titulo="Em proposta"
+            valor={formatMoeda(stats.valor_em_proposta)}
+            nota={`${stats.por_fase.proposta} por fechar`}
+            href="/clientes?fase=proposta"
+          />
+          <CartaoEstatistica
+            titulo="Em desenvolvimento"
+            valor={formatMoeda(stats.valor_em_desenvolvimento)}
+            nota={`${stats.por_fase.desenvolvimento} a decorrer`}
+            href="/clientes?fase=desenvolvimento"
+          />
+          <CartaoEstatistica
+            titulo="Total dos projetos"
+            valor={formatMoeda(stats.valor_total_projetos)}
+            nota={
+              stats.por_fase.cancelado > 0
+                ? `${stats.por_fase.cancelado} cancelado(s) fora da conta`
+                : "Tudo somado, exceto cancelados"
+            }
+            href="/clientes?ordem=valor"
+          />
+        </div>
+      </section>
 
-          {proximos.length === 0 ? (
-            <Vazio
-              titulo="Sem anuidades agendadas"
-              descricao="Marque 'Tem anuidade' num cliente e indique a data do próximo pagamento para começar a receber alertas."
-            />
-          ) : (
-            <ul className="cartao divide-y divide-[var(--color-borda)]">
-              {proximos.map((cliente) => (
-                <li key={cliente.id}>
-                  <Link
-                    href={`/clientes/${cliente.id}`}
-                    className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--color-texto)]/5"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{cliente.empresa}</p>
-                      <p className="truncate text-xs text-[var(--color-suave)]">
-                        {formatData(cliente.data_proximo_pagamento)} ·{" "}
-                        {formatMoeda(cliente.valor_anuidade, cliente.moeda)} · alerta{" "}
-                        {cliente.alerta_dias_antes} d antes
-                      </p>
-                    </div>
-                    <EtiquetaPagamento cliente={cliente} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-semibold">Próximos pagamentos</h2>
+          <Link href="/clientes?anuidade=1&ordem=pagamento" className="text-sm text-[var(--color-marca)]">
+            Ver todos
+          </Link>
         </div>
 
-        <div className="lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-semibold">Por fase</h2>
-          </div>
-          <div className="cartao divide-y divide-[var(--color-borda)]">
-            {(
-              [
-                ["proposta", "Proposta"],
-                ["desenvolvimento", "Em desenvolvimento"],
-                ["concluido", "Concluído"],
-                ["cancelado", "Cancelado"],
-              ] as const
-            ).map(([fase, rotulo]) => (
-              <Link
-                key={fase}
-                href={`/clientes?fase=${fase}`}
-                className="flex items-center justify-between px-4 py-3 text-sm hover:bg-[var(--color-texto)]/5"
-              >
-                <span>{rotulo}</span>
-                <span className="font-semibold tabular-nums">{stats.por_fase[fase]}</span>
-              </Link>
+        {proximos.length === 0 ? (
+          <Vazio
+            titulo="Sem anuidades agendadas"
+            descricao="Marque 'Tem anuidade' num cliente e indique a data do próximo pagamento para começar a receber alertas."
+          />
+        ) : (
+          <ul className="cartao divide-y divide-[var(--color-borda)]">
+            {proximos.map((cliente) => (
+              <li key={cliente.id}>
+                <Link
+                  href={`/clientes/${cliente.id}`}
+                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--color-texto)]/5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{cliente.empresa}</p>
+                    <p className="truncate text-xs text-[var(--color-suave)]">
+                      {formatData(cliente.data_proximo_pagamento)} ·{" "}
+                      {formatMoeda(cliente.valor_anuidade, cliente.moeda)} · alerta{" "}
+                      {cliente.alerta_dias_antes} d antes
+                    </p>
+                  </div>
+                  <EtiquetaPagamento cliente={cliente} />
+                </Link>
+              </li>
             ))}
-          </div>
-
-          <div className="cartao mt-3 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-suave)]">
-              Recebido (últimos 12 meses)
-            </p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums">
-              {formatMoeda(stats.recebido_12_meses)}
-            </p>
-            <p className="mt-1 text-xs text-[var(--color-suave)]">
-              Soma dos pagamentos registados na ficha de cada cliente.
-            </p>
-          </div>
-        </div>
+          </ul>
+        )}
       </section>
 
       {recentes.length > 0 && (

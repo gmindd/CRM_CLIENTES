@@ -1,6 +1,8 @@
 import { historicoAlertas } from "@/lib/alertas";
 import { modoAutenticacao } from "@/lib/auth";
 import { destinatarioAlertas, emailConfigurado } from "@/lib/mail";
+import { estadoDeTudo } from "@/lib/config";
+import FormularioEmail, { type EstadoConfigPublico } from "@/components/FormularioEmail";
 import { formatData } from "@/lib/format";
 import { Linha } from "@/components/ui";
 import PainelAlertas from "@/components/PainelAlertas";
@@ -13,6 +15,7 @@ export default async function Definicoes() {
   const configurado = emailConfigurado();
   const agendadorAtivo = process.env.ALERTAS_AUTO !== "false";
   const acesso = modoAutenticacao();
+  const config = estadoDeTudo() as EstadoConfigPublico;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -44,12 +47,23 @@ export default async function Definicoes() {
       </section>
 
       <section className="cartao p-5">
+        <h2 className="font-semibold">Servidor de email</h2>
+        <p className="mb-4 mt-1 text-sm text-[var(--color-suave)]">
+          Sem isto o CRM funciona na mesma, só não envia os alertas de pagamento. O que escrever
+          aqui tem prioridade sobre as variáveis de ambiente e aplica-se sem reiniciar nada.
+        </p>
+        <FormularioEmail config={config} />
+      </section>
+
+      <section className="cartao p-5">
         <h2 className="mb-3 font-semibold">Alertas de pagamento</h2>
         <Linha rotulo="Envio de email">
           {configurado ? (
             <span className="text-emerald-600 dark:text-emerald-400">Configurado</span>
           ) : (
-            <span className="text-red-600 dark:text-red-400">Falta SMTP_HOST / MAIL_FROM</span>
+            <span className="text-amber-600 dark:text-amber-400">
+              Por configurar (ver secção acima)
+            </span>
           )}
         </Linha>
         <Linha rotulo="Destinatário">{destinatarioAlertas() || "—"}</Linha>
@@ -98,7 +112,6 @@ export default async function Definicoes() {
         <Linha rotulo="Base de dados">
           <code className="text-xs break-all">{dbPath}</code>
         </Linha>
-        <Linha rotulo="Endereço público">{process.env.APP_URL || "—"}</Linha>
         <Linha rotulo="Endpoint de cron externo">
           <code className="text-xs">/api/cron/alertas</code>
         </Linha>

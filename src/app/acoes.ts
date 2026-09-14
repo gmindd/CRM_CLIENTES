@@ -10,7 +10,13 @@ import {
   criarCliente,
   registarPagamento,
 } from "@/lib/clientes";
-import { clienteSchema, errosPorCampo, pagamentoSchema } from "@/lib/validation";
+import {
+  clienteSchema,
+  definicoesEmailSchema,
+  errosPorCampo,
+  pagamentoSchema,
+} from "@/lib/validation";
+import { guardarConfig, type ChaveConfig } from "@/lib/config";
 import { temSessao } from "@/lib/auth";
 import { verificarAlertas } from "@/lib/alertas";
 
@@ -127,4 +133,43 @@ export async function correrAlertas(_estado: unknown, dados: FormData) {
       erroGeral: erro instanceof Error ? erro.message : "Erro desconhecido",
     };
   }
+}
+
+/**
+ * Guarda as definições de email escritas na página de Definições.
+ *
+ * A password só é alterada quando o campo vem preenchido: em branco mantém a
+ * que já estava guardada, e a caixa "apagar" remove-a.
+ */
+export async function guardarDefinicoesEmail(
+  _estado: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  await exigirSessao();
+
+  const valores = paraObjeto(dados);
+  const resultado = definicoesEmailSchema.safeParse(valores);
+
+  if (!resultado.success) {
+    return { erros: errosPorCampo(resultado.error as z.ZodError), valores };
+  }
+
+  const aGuardar: Partial<Record<ChaveConfig, string | null>> = { ...resultado.data };
+
+  const novaPassword = (valores.SMTP_PASS ?? "").trim();
+  if (dados.get("apagar_password") === "on") {
+    aGuardar.SMTP_PASS = null;
+  } else if (novaPassword) {
+    aGuardar.SMTP_PASS = novaPassword;
+  }
+
+  try {
+    guardarConfig(aGuardar);
+  } catch (erro) {
+    console.error("[guardarDefinicoesEmail]", erro);
+    return { erroGeral: "Não foi possível guardar as definições.", valores };
+  }
+
+  revalidatePath("/definicoes");
+  return { ok: true };
 }

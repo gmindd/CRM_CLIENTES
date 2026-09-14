@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import Logo from "./Logo";
 
 const LIGACOES = [
   { href: "/", rotulo: "Painel" },
@@ -22,11 +23,8 @@ export default function Navegacao() {
   return (
     <header className="sticky top-0 z-20 border-b border-[var(--color-borda)] bg-[var(--color-superficie)]/85 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-marca)] text-xs font-bold text-white">
-            GP
-          </span>
-          CRM
+        <Link href="/" aria-label="CRM · início">
+          <Logo />
         </Link>
 
         <nav className="flex items-center gap-1 text-sm">

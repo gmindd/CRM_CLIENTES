@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "hash-password": "node scripts/hash-password.mjs",
     "check-alerts": "node scripts/check-alerts.mjs",
-    "test:e2e": "node testes/e2e.mjs ./testes"
+    "test:e2e": "node testes/e2e.mjs ./testes",
+    "test:definicoes": "node testes/definicoes.mjs ./testes"
   },
   "dependencies": {
     "next": "16.3.5",

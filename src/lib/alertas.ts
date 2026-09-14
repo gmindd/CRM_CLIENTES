@@ -1,6 +1,7 @@
 import { getDb } from "./db";
 import { listarClientes } from "./clientes";
 import { enviarEmail, destinatarioAlertas, emailConfigurado } from "./mail";
+import { valorConfig } from "./config";
 import { formatData, formatMoeda, hojeISO } from "./format";
 import type { ClienteComEstado } from "./types";
 
@@ -13,7 +14,7 @@ export interface ResultadoAlertas {
 }
 
 function urlBase(): string {
-  return (process.env.APP_URL || "https://crm.pereiragabriel.com").replace(/\/$/, "");
+  return (valorConfig("APP_URL") || "https://crm.pereiragabriel.com").replace(/\/$/, "");
 }
 
 function corpoEmail(cliente: ClienteComEstado, dias: number, tipo: "aviso" | "vencido") {
@@ -112,7 +113,9 @@ export async function verificarAlertas(
   resultado.verificados = candidatos.length;
 
   if (candidatos.length && !opcoes.simulacao && !emailConfigurado()) {
-    resultado.erros.push("Envio de email não configurado (SMTP_HOST / MAIL_FROM em falta)");
+    resultado.erros.push(
+      "Envio de email por configurar — indique o servidor SMTP na página de Definições",
+    );
     return resultado;
   }
 

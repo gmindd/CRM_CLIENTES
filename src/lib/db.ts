@@ -52,6 +52,14 @@ CREATE TABLE IF NOT EXISTS pagamentos (
 
 CREATE INDEX IF NOT EXISTS idx_pagamentos_cliente ON pagamentos(cliente_id);
 
+-- Configuracoes editaveis na propria aplicacao (ex.: dados do servidor de email).
+-- O que estiver aqui tem prioridade sobre as variaveis de ambiente.
+CREATE TABLE IF NOT EXISTS configuracoes (
+  chave         TEXT PRIMARY KEY,
+  valor         TEXT,
+  atualizado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Registo dos alertas ja enviados: impede emails repetidos para o mesmo vencimento.
 CREATE TABLE IF NOT EXISTS alertas_enviados (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,

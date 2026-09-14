@@ -147,3 +147,37 @@ export function errosPorCampo(erro: z.ZodError): Record<string, string> {
   }
   return saida;
 }
+
+// ---------------------------------------------------------------------------
+// Definições de email editáveis na aplicação
+// ---------------------------------------------------------------------------
+
+/** Aceita "pessoa@exemplo.com" ou "Nome <pessoa@exemplo.com>". */
+const remetente = textoOpcional.refine(
+  (v) => {
+    if (v === null) return true;
+    const dentroDosSinais = v.match(/<([^>]+)>\s*$/);
+    return EMAIL_RE.test(dentroDosSinais ? dentroDosSinais[1].trim() : v);
+  },
+  { message: 'Use "nome@dominio.com" ou "Nome <nome@dominio.com>"' },
+);
+
+export const definicoesEmailSchema = z.object({
+  SMTP_HOST: textoOpcional.refine((v) => v === null || /^[a-z0-9.-]+$/i.test(v), {
+    message: "Endereço inválido (ex.: smtp.dominio.com)",
+  }),
+  SMTP_PORT: textoOpcional.refine(
+    (v) => v === null || (/^\d+$/.test(v) && Number(v) >= 1 && Number(v) <= 65535),
+    { message: "Porta inválida (normalmente 587 ou 465)" },
+  ),
+  SMTP_SECURE: z
+    .enum(["auto", "true", "false"])
+    .optional()
+    .transform((v) => (v === "auto" || v === undefined ? null : v)),
+  SMTP_USER: textoOpcional,
+  MAIL_FROM: remetente,
+  ALERT_EMAIL_TO: emailOpcional,
+  APP_URL: urlOpcional,
+});
+
+export type DefinicoesEmailInput = z.infer<typeof definicoesEmailSchema>;

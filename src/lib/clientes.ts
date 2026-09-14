@@ -186,6 +186,8 @@ export interface Estatisticas {
   por_fase: Record<Fase, number>;
   valor_total_projetos: number;
   valor_em_proposta: number;
+  valor_em_desenvolvimento: number;
+  valor_concluido: number;
   receita_anual_recorrente: number;
   pagamentos_vencidos: number;
   pagamentos_a_chegar: number;
@@ -205,6 +207,8 @@ export function estatisticas(): Estatisticas {
 
   let valorTotal = 0;
   let valorProposta = 0;
+  let valorDesenvolvimento = 0;
+  let valorConcluido = 0;
   let arr = 0;
   let vencidos = 0;
   let aChegar = 0;
@@ -213,6 +217,8 @@ export function estatisticas(): Estatisticas {
     porFase[c.fase] += 1;
     if (c.fase !== "cancelado") valorTotal += c.valor_projeto;
     if (c.fase === "proposta") valorProposta += c.valor_projeto;
+    if (c.fase === "desenvolvimento") valorDesenvolvimento += c.valor_projeto;
+    if (c.fase === "concluido") valorConcluido += c.valor_projeto;
     if (c.tem_anuidade && c.cliente_ativo) arr += c.valor_anuidade ?? 0;
     if (c.estado_pagamento === "vencido") vencidos += 1;
     if (c.estado_pagamento === "alerta") aChegar += 1;
@@ -228,6 +234,8 @@ export function estatisticas(): Estatisticas {
     por_fase: porFase,
     valor_total_projetos: arredondar(valorTotal),
     valor_em_proposta: arredondar(valorProposta),
+    valor_em_desenvolvimento: arredondar(valorDesenvolvimento),
+    valor_concluido: arredondar(valorConcluido),
     receita_anual_recorrente: arredondar(arr),
     pagamentos_vencidos: vencidos,
     pagamentos_a_chegar: aChegar,

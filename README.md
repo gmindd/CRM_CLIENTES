@@ -11,6 +11,7 @@ Inclui instruções para **Coolify**, Docker Compose ou systemd.
 | **Base de dados** | Um único ficheiro `data/crm.sqlite` — backup = copiar o ficheiro |
 | **Acesso** | Password única + cookie de sessão assinado (JWT HS256) |
 | **Alertas** | Agendador interno (node-cron) ou cron externo via `/api/cron/alertas` |
+| **Email** | Configurável na própria aplicação (Definições) ou por variáveis de ambiente |
 
 ---
 
@@ -35,7 +36,8 @@ Os campos pedidos, mais alguns que valem a pena ter:
 | Data de início · conclusão | |
 | Notas | texto livre |
 
-**Extras incluídos:** painel com receita recorrente anual e pagamentos a chegar,
+**Extras incluídos:** painel com o valor dos projetos repartido por fase
+(concluídos, em proposta, em desenvolvimento e total), receita recorrente anual e pagamentos a chegar,
 histórico de pagamentos por cliente (com renovação automática da data), pesquisa
 e filtros, exportação para CSV, registo dos alertas enviados, e página de
 definições com teste de email.
@@ -57,6 +59,20 @@ definições com teste de email.
 
 Pode sempre forçar uma verificação em **Definições → Verificar e enviar agora**,
 ou simular sem enviar nada.
+
+### Configurar o email
+
+Em **Definições → Servidor de email** preenche o servidor SMTP, a porta, o
+utilizador, a password, o remetente e o endereço que recebe os alertas — sem
+tocar em variáveis de ambiente nem reiniciar a aplicação. Os valores ficam na
+base de dados e a password é guardada cifrada (AES-256-GCM, com chave derivada
+do `SESSION_SECRET`).
+
+Quem preferir continuar a usar variáveis de ambiente pode fazê-lo: a aplicação
+lê `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`,
+`MAIL_FROM`, `ALERT_EMAIL_TO` e `APP_URL` como valores por omissão. O que
+estiver escrito nas Definições tem prioridade, e cada campo indica de onde vem
+o valor em uso.
 
 ---
 
@@ -203,16 +219,12 @@ APP_URL=https://crm.pereiragabriel.com
 TZ=Europe/Lisbon
 DATABASE_PATH=/app/data/crm.sqlite
 
-SMTP_HOST=smtp.o-seu-servidor.com
-SMTP_PORT=587
-SMTP_USER=crm@pereiragabriel.com
-SMTP_PASS=password-do-email
-MAIL_FROM=CRM <crm@pereiragabriel.com>
-ALERT_EMAIL_TO=o-seu-email@exemplo.com
-
 ALERTAS_AUTO=true
 ALERTAS_CRON=0 9 * * *
 ```
+
+O email **não** precisa de variáveis: configura-se depois em
+**Definições → Servidor de email**, já com a aplicação a correr.
 
 Para o `SESSION_SECRET` serve qualquer valor longo e aleatório — o gerador de
 passwords do seu gestor de passwords, ou num terminal qualquer:
@@ -308,9 +320,9 @@ ou, a partir da própria pasta do projeto: `node scripts/check-alerts.mjs`.
 | `APP_URL` | — | Endereço público, usado nos links dos emails |
 | `DATABASE_PATH` | — | Ficheiro SQLite (`./data/crm.sqlite`) |
 | `TZ` | — | Fuso horário (`Europe/Lisbon`) |
-| `SMTP_HOST` · `SMTP_PORT` · `SMTP_SECURE` · `SMTP_USER` · `SMTP_PASS` | para alertas | Servidor de email |
-| `MAIL_FROM` | para alertas | Remetente |
-| `ALERT_EMAIL_TO` | para alertas | Destinatário dos alertas |
+| `SMTP_HOST` · `SMTP_PORT` · `SMTP_SECURE` · `SMTP_USER` · `SMTP_PASS` | — | Servidor de email (ou configure em Definições) |
+| `MAIL_FROM` | — | Remetente (ou configure em Definições) |
+| `ALERT_EMAIL_TO` | — | Destinatário dos alertas (ou configure em Definições) |
 | `ALERTAS_AUTO` | — | `false` desliga o agendador interno |
 | `ALERTAS_CRON` | — | Expressão cron (`0 9 * * *`) |
 | `CRON_SECRET` | — | Segredo do endpoint `/api/cron/alertas` |
@@ -335,12 +347,14 @@ src/
     clientes.ts          consultas e estatísticas
     alertas.ts           motor de alertas e emails
     mail.ts              SMTP
+    config.ts            definições editáveis na app (email), com cifra
     validation.ts        validação dos formulários (zod)
     sessao.ts / auth.ts  sessão e password
   middleware.ts          protege tudo o que não seja o login
 deploy/                  nginx, systemd, backup
 scripts/                 hash-password, check-alerts
-testes/e2e.mjs           teste end-to-end (Playwright)
+testes/e2e.mjs           teste end-to-end de clientes e pagamentos
+testes/definicoes.mjs    teste end-to-end da configuração de email
 ```
 
 ## Testes
@@ -350,6 +364,7 @@ npm run typecheck
 npm run build
 # com a aplicação a correr:
 E2E_PASSWORD="a-sua-password" npm run test:e2e
+E2E_PASSWORD="a-sua-password" npm run test:definicoes
 ```
 
 ## Segurança
@@ -360,4 +375,5 @@ E2E_PASSWORD="a-sua-password" npm run test:e2e
   `Secure` em produção.
 - Limite de tentativas de login por IP.
 - `noindex` nos cabeçalhos e nos metadados.
+- A password do servidor de email é guardada cifrada na base de dados.
 - A base de dados **nunca** é versionada (`data/` está no `.gitignore`).

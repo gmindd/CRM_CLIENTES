@@ -11,7 +11,7 @@ export async function POST() {
   }
   if (!emailConfigurado()) {
     return NextResponse.json(
-      { erro: "SMTP_HOST e MAIL_FROM não estão definidos no .env" },
+      { erro: "Preencha o servidor SMTP e o remetente nesta página, e guarde primeiro." },
       { status: 400 },
     );
   }
