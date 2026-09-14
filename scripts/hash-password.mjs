@@ -26,7 +26,14 @@ if (!password || password.length < 8) {
 
 const hash = await bcrypt.hash(password, 12);
 
-console.log("\nCole estas linhas no seu .env:\n");
+const segredo = randomBytes(48).toString("base64");
+
+console.log("\nPara um ficheiro .env (local, Docker Compose, systemd):\n");
 console.log(`APP_PASSWORD_HASH='${hash}'`);
-console.log(`SESSION_SECRET='${randomBytes(48).toString("base64")}'`);
+console.log(`SESSION_SECRET='${segredo}'`);
+
+console.log("\nPara painéis web (Coolify, Portainer...), onde o '$' pode ser");
+console.log("interpretado como variável — use esta em vez da de cima:\n");
+console.log(`APP_PASSWORD_HASH_B64=${Buffer.from(hash, "utf8").toString("base64")}`);
+console.log(`SESSION_SECRET=${segredo}`);
 console.log();

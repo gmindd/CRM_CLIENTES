@@ -3,18 +3,39 @@ import { cookies } from "next/headers";
 import { COOKIE_SESSAO, tokenValido } from "./sessao";
 
 /**
+ * Lê o hash bcrypt configurado.
+ *
+ * O hash começa sempre por `$2b$...` e há painéis (Coolify, Portainer, alguns
+ * ficheiros compose) que tratam o `$` como início de variável e destroem o
+ * valor. Por isso aceitamos também APP_PASSWORD_HASH_B64 — o mesmo hash em
+ * base64, sem qualquer caractere problemático.
+ */
+export function hashConfigurado(): string | undefined {
+  const base64 = process.env.APP_PASSWORD_HASH_B64;
+  if (base64) {
+    const descodificado = Buffer.from(base64, "base64").toString("utf8").trim();
+    if (descodificado.startsWith("$2")) return descodificado;
+    console.error("[auth] APP_PASSWORD_HASH_B64 não contém um hash bcrypt válido");
+  }
+  return process.env.APP_PASSWORD_HASH;
+}
+
+/**
  * Verifica a password de acesso.
- * Preferir APP_PASSWORD_HASH (bcrypt, gerado com `npm run hash-password`).
- * APP_PASSWORD em texto simples existe apenas como alternativa para uso local.
+ * Preferir APP_PASSWORD_HASH / APP_PASSWORD_HASH_B64 (bcrypt, gerados com
+ * `npm run hash-password`). APP_PASSWORD em texto simples existe apenas como
+ * alternativa para uso local.
  */
 export async function passwordCorreta(password: string): Promise<boolean> {
-  const hash = process.env.APP_PASSWORD_HASH;
+  const hash = hashConfigurado();
   if (hash) return bcrypt.compare(password, hash);
 
   const simples = process.env.APP_PASSWORD;
   if (simples) return comparaConstante(password, simples);
 
-  throw new Error("Defina APP_PASSWORD_HASH (recomendado) ou APP_PASSWORD no ficheiro .env");
+  throw new Error(
+    "Defina APP_PASSWORD_HASH (ou APP_PASSWORD_HASH_B64) — veja `npm run hash-password`",
+  );
 }
 
 /** Comparação em tempo constante para não revelar o tamanho da password. */

@@ -3,6 +3,7 @@
 CRM privado para gerir clientes, projetos e anuidades, com **alertas por email**
 quando um pagamento se aproxima. Feito para correr num VPS, atrás de Nginx,
 num subdomínio protegido por password (ex.: `crm.pereiragabriel.com`).
+Inclui instruções para **Coolify**, Docker Compose ou systemd.
 
 | | |
 |---|---|
@@ -144,6 +145,109 @@ cd /var/www/crm && git pull && docker compose up -d --build
 
 ---
 
+## Deploy no Coolify
+
+O Coolify trata do domínio, do HTTPS e do proxy, por isso **não precisa do
+`deploy/nginx.conf`** — esse ficheiro é só para quem instala à mão.
+
+### 1. Criar a aplicação
+
+**+ New Resource → Application →** escolha a origem:
+
+- repositório **público**: *Public Repository* e cole
+  `https://github.com/gmindd/CRM_CLIENTES`
+- repositório **privado**: *Private Repository (with GitHub App)*
+
+Depois, nas definições da aplicação:
+
+| Campo | Valor |
+|---|---|
+| **Build Pack** | **Dockerfile** |
+| Branch | `claude/crm-clientes-alertas-kij574` (ou `main`, se renomear) |
+| Base Directory | `/` |
+| Dockerfile Location | `/Dockerfile` |
+| Ports Exposes | `3000` |
+| Domain | `https://crm.pereiragabriel.com` |
+
+> **Porquê Dockerfile e não Railpack/Nixpacks?** O Railpack detetava o Next.js e
+> construía, mas ignorava o modo `standalone`, recompilava o `better-sqlite3` à
+> sua maneira e não garantia a pasta de dados. O `Dockerfile` deste repositório
+> já está testado: compila o módulo nativo, gera a imagem mínima, corre como
+> utilizador sem privilégios e traz *healthcheck*.
+
+### 2. Armazenamento persistente (o passo que não pode falhar)
+
+Sem isto, **a base de dados é apagada em cada deploy**.
+
+**Storages → + Add → Volume Mount**
+
+| Campo | Valor |
+|---|---|
+| Name | `crm-data` |
+| Destination Path | `/app/data` |
+
+Use *Volume Mount* (volume Docker), não *Bind Mount*: o contentor corre como
+utilizador `crm` (uid 1001) e um bind mount numa pasta do host fica a pertencer
+ao `root`, o que impede a escrita.
+
+### 3. Variáveis de ambiente
+
+Gere os segredos (na sua máquina, com o repositório clonado):
+
+```bash
+npm install
+npm run hash-password -- "a-sua-password"
+```
+
+No Coolify, **Environment Variables → + Add**, uma a uma, todas como variáveis
+de *runtime* (deixe o *Build Variable* desligado). Use a variante **base64** do
+hash, que evita problemas com o `$`:
+
+```ini
+APP_PASSWORD_HASH_B64=<a linha base64 impressa pelo comando acima>
+SESSION_SECRET=<a linha SESSION_SECRET impressa pelo comando acima>
+APP_URL=https://crm.pereiragabriel.com
+TZ=Europe/Lisbon
+DATABASE_PATH=/app/data/crm.sqlite
+
+SMTP_HOST=smtp.o-seu-servidor.com
+SMTP_PORT=587
+SMTP_USER=crm@pereiragabriel.com
+SMTP_PASS=<password do email>
+MAIL_FROM=CRM <crm@pereiragabriel.com>
+ALERT_EMAIL_TO=pereiragabriel.gp@gmail.com
+
+ALERTAS_AUTO=true
+ALERTAS_CRON=0 9 * * *
+```
+
+### 4. DNS e deploy
+
+No DNS de `pereiragabriel.com`, crie um registo **A** de `crm` para o IP do
+servidor do Coolify. Depois carregue em **Deploy**. O Coolify emite o
+certificado Let's Encrypt sozinho.
+
+A primeira build demora alguns minutos (compila o `better-sqlite3`) e precisa de
+memória: **num VPS com 1 GB de RAM pode falhar por falta de memória** — nesse
+caso acrescente swap ao servidor antes de construir.
+
+### 5. Confirmar
+
+1. Abra `https://crm.pereiragabriel.com` → deve pedir a password.
+2. **Definições** → *Enviar email de teste* → confirme que chega à sua caixa.
+3. **Definições** → *Simular verificação* → mostra quem receberia alerta hoje.
+
+### Notas
+
+- O agendador corre dentro do contentor; com 1 réplica basta. Se fizer *rolling
+  update* e houver dois contentores por instantes, não há risco de emails
+  repetidos — a base de dados tem uma restrição de unicidade por vencimento.
+- Backups: em vez do `deploy/backup.sh`, pode usar os *Scheduled Backups* do
+  próprio Coolify sobre o volume, ou correr no servidor:
+  `docker cp crm-container:/app/data/crm.sqlite ./backup.sqlite`.
+
+---
+
 ## Deploy sem Docker (systemd)
 
 ```bash
@@ -180,6 +284,7 @@ ou, a partir da própria pasta do projeto: `node scripts/check-alerts.mjs`.
 | Variável | Obrigatória | Descrição |
 |---|:---:|---|
 | `APP_PASSWORD_HASH` | sim¹ | Hash bcrypt da password de acesso |
+| `APP_PASSWORD_HASH_B64` | sim¹ | O mesmo hash em base64 (para painéis onde o `$` dá problemas) |
 | `APP_PASSWORD` | — | Password em texto simples (só para uso local) |
 | `SESSION_SECRET` | sim | Segredo do cookie de sessão (≥ 32 caracteres) |
 | `SESSION_DAYS` | — | Dias que a sessão dura (7) |
@@ -194,7 +299,7 @@ ou, a partir da própria pasta do projeto: `node scripts/check-alerts.mjs`.
 | `CRON_SECRET` | — | Segredo do endpoint `/api/cron/alertas` |
 | `LOGIN_MAX_TENTATIVAS` · `LOGIN_JANELA_MINUTOS` | — | Limite de tentativas de login por IP (8 / 15 min) |
 
-¹ é preciso `APP_PASSWORD_HASH` **ou** `APP_PASSWORD`.
+¹ é preciso **uma** destas: `APP_PASSWORD_HASH_B64`, `APP_PASSWORD_HASH` ou `APP_PASSWORD`.
 
 ---
 
