@@ -1,4 +1,5 @@
 import { historicoAlertas } from "@/lib/alertas";
+import { modoAutenticacao } from "@/lib/auth";
 import { destinatarioAlertas, emailConfigurado } from "@/lib/mail";
 import { formatData } from "@/lib/format";
 import { Linha } from "@/components/ui";
@@ -11,6 +12,7 @@ export default async function Definicoes() {
   const historico = historicoAlertas(30);
   const configurado = emailConfigurado();
   const agendadorAtivo = process.env.ALERTAS_AUTO !== "false";
+  const acesso = modoAutenticacao();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -20,6 +22,26 @@ export default async function Definicoes() {
           Estado do envio de alertas e configuração do servidor.
         </p>
       </div>
+
+      <section className="cartao p-5">
+        <h2 className="mb-3 font-semibold">Acesso</h2>
+        <Linha rotulo="Password">
+          {acesso === "hash" ? (
+            <span className="text-emerald-600 dark:text-emerald-400">Guardada como hash bcrypt</span>
+          ) : acesso === "texto_simples" ? (
+            <span className="text-amber-600 dark:text-amber-400">Em texto simples (APP_PASSWORD)</span>
+          ) : (
+            <span className="text-red-600 dark:text-red-400">Por configurar</span>
+          )}
+        </Linha>
+        {acesso === "texto_simples" && (
+          <p className="mt-3 text-xs text-[var(--color-suave)]">
+            Funciona, mas quem tiver acesso às variáveis de ambiente do servidor consegue ler a
+            password. Para a guardar como hash, defina <code>APP_PASSWORD_HASH_B64</code> e remova
+            <code> APP_PASSWORD</code> — veja o README.
+          </p>
+        )}
+      </section>
 
       <section className="cartao p-5">
         <h2 className="mb-3 font-semibold">Alertas de pagamento</h2>

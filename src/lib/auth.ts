@@ -38,6 +38,17 @@ export async function passwordCorreta(password: string): Promise<boolean> {
   );
 }
 
+/**
+ * Como está configurado o acesso — mostrado na página de Definições para se
+ * perceber, de relance, se a password está guardada como hash ou em texto
+ * simples no painel de alojamento.
+ */
+export function modoAutenticacao(): "hash" | "texto_simples" | "por_configurar" {
+  if (hashConfigurado()) return "hash";
+  if (process.env.APP_PASSWORD) return "texto_simples";
+  return "por_configurar";
+}
+
 /** Comparação em tempo constante para não revelar o tamanho da password. */
 function comparaConstante(a: string, b: string): boolean {
   const ba = Buffer.from(a);

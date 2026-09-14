@@ -192,20 +192,13 @@ ao `root`, o que impede a escrita.
 
 ### 3. Variáveis de ambiente
 
-Gere os segredos (na sua máquina, com o repositório clonado):
-
-```bash
-npm install
-npm run hash-password -- "a-sua-password"
-```
-
-No Coolify, **Environment Variables → + Add**, uma a uma, todas como variáveis
-de *runtime* (deixe o *Build Variable* desligado). Use a variante **base64** do
-hash, que evita problemas com o `$`:
+Não precisa de clonar o repositório nem instalar nada: escreva as variáveis
+diretamente em **Environment Variables → + Add** no Coolify, todas como
+variáveis de *runtime* (deixe o *Build Variable* desligado).
 
 ```ini
-APP_PASSWORD_HASH_B64=<a linha base64 impressa pelo comando acima>
-SESSION_SECRET=<a linha SESSION_SECRET impressa pelo comando acima>
+APP_PASSWORD=escolha-aqui-uma-password-so-para-este-CRM
+SESSION_SECRET=48-ou-mais-caracteres-aleatorios
 APP_URL=https://crm.pereiragabriel.com
 TZ=Europe/Lisbon
 DATABASE_PATH=/app/data/crm.sqlite
@@ -213,13 +206,37 @@ DATABASE_PATH=/app/data/crm.sqlite
 SMTP_HOST=smtp.o-seu-servidor.com
 SMTP_PORT=587
 SMTP_USER=crm@pereiragabriel.com
-SMTP_PASS=<password do email>
+SMTP_PASS=password-do-email
 MAIL_FROM=CRM <crm@pereiragabriel.com>
-ALERT_EMAIL_TO=pereiragabriel.gp@gmail.com
+ALERT_EMAIL_TO=o-seu-email@exemplo.com
 
 ALERTAS_AUTO=true
 ALERTAS_CRON=0 9 * * *
 ```
+
+Para o `SESSION_SECRET` serve qualquer valor longo e aleatório — o gerador de
+passwords do seu gestor de passwords, ou num terminal qualquer:
+
+```bash
+openssl rand -base64 48
+```
+
+#### Guardar a password como hash (opcional, mais seguro)
+
+Com `APP_PASSWORD`, quem conseguir ler as variáveis de ambiente do servidor lê a
+password. A página **Definições** mostra sempre em que modo está. Para passar a
+hash, gere-o com um único comando — no terminal do servidor (o Coolify tem um) ou
+em qualquer máquina com Docker:
+
+```bash
+docker run --rm node:22-alpine sh -c \
+  "npm i -s bcryptjs >/dev/null 2>&1; node -e \"console.log(Buffer.from(require('bcryptjs').hashSync(process.argv[1],12)).toString('base64'))\" 'A-SUA-PASSWORD'"
+```
+
+Copie o resultado para `APP_PASSWORD_HASH_B64`, **apague a variável
+`APP_PASSWORD`** e faça *Redeploy*. (Se tiver o repositório clonado,
+`npm run hash-password -- "a-sua-password"` faz o mesmo e imprime as duas
+variantes.)
 
 ### 4. DNS e deploy
 
@@ -285,7 +302,7 @@ ou, a partir da própria pasta do projeto: `node scripts/check-alerts.mjs`.
 |---|:---:|---|
 | `APP_PASSWORD_HASH` | sim¹ | Hash bcrypt da password de acesso |
 | `APP_PASSWORD_HASH_B64` | sim¹ | O mesmo hash em base64 (para painéis onde o `$` dá problemas) |
-| `APP_PASSWORD` | — | Password em texto simples (só para uso local) |
+| `APP_PASSWORD` | sim¹ | Password em texto simples (mais simples de configurar, menos segura) |
 | `SESSION_SECRET` | sim | Segredo do cookie de sessão (≥ 32 caracteres) |
 | `SESSION_DAYS` | — | Dias que a sessão dura (7) |
 | `APP_URL` | — | Endereço público, usado nos links dos emails |
