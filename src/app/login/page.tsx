@@ -18,7 +18,7 @@ export default async function PaginaLogin({
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <div className="mb-4 flex justify-center">
-            <Logo texto="" />
+            <Logo texto="" tamanho={56} />
           </div>
           <h1 className="text-xl font-semibold">CRM · Clientes</h1>
           <p className="mt-1 text-sm text-[var(--color-suave)]">Área privada. Introduza a password.</p>

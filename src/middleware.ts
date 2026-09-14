@@ -29,5 +29,9 @@ export async function middleware(pedido: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|robots.txt).*)"],
+  // Os ícones têm de ficar de fora: são pedidos pelo browser antes de haver
+  // sessão (nomeadamente no próprio ecrã de login).
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|robots.txt).*)",
+  ],
 };
