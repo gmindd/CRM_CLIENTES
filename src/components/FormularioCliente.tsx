@@ -207,6 +207,21 @@ export default function FormularioCliente({ cliente }: { cliente?: ClienteComEst
             {erro("data_conclusao")}
           </div>
 
+          <div className="sm:col-span-2">
+            <label className="rotulo" htmlFor="site_atual">
+              Site atual <span className="font-normal normal-case tracking-normal">(o que o cliente tem hoje)</span>
+            </label>
+            <input
+              id="site_atual"
+              name="site_atual"
+              type="url"
+              placeholder="https://www.site-do-cliente.pt"
+              className="campo"
+              defaultValue={v("site_atual", cliente?.site_atual)}
+            />
+            {erro("site_atual")}
+          </div>
+
           <div>
             <label className="rotulo" htmlFor="link_desenvolvimento">
               Link de desenvolvimento
@@ -307,6 +322,53 @@ export default function FormularioCliente({ cliente }: { cliente?: ClienteComEst
               cliente para a data avançar automaticamente.
             </p>
           </div>
+        )}
+      </fieldset>
+
+      {/* ---- Follow-up ---- */}
+      <fieldset className="cartao space-y-4 p-5">
+        <legend className="px-1 text-sm font-semibold">Lembrete de follow-up</legend>
+
+        <p className="text-sm text-[var(--color-suave)]">
+          Marque uma data e receberá um email nesse dia a lembrar que tem de voltar a contactar
+          este cliente. Útil logo a seguir a enviar um email ou uma proposta.
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className="rotulo" htmlFor="followup_data">
+              Lembrar-me em
+            </label>
+            <input
+              id="followup_data"
+              name="followup_data"
+              type="date"
+              className="campo"
+              defaultValue={v("followup_data", cliente?.followup_data)}
+            />
+            {erro("followup_data")}
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="rotulo" htmlFor="followup_nota">
+              O que fazer nesse dia
+            </label>
+            <input
+              id="followup_nota"
+              name="followup_nota"
+              className="campo"
+              placeholder="Ligar a perguntar se viu a proposta"
+              defaultValue={v("followup_nota", cliente?.followup_nota)}
+            />
+            {erro("followup_nota")}
+          </div>
+        </div>
+
+        {cliente?.followup_concluido === 1 && (
+          <p className="text-xs text-[var(--color-suave)]">
+            Este follow-up está marcado como feito. Se puser uma data nova, volta a ficar por
+            fazer.
+          </p>
         )}
       </fieldset>
 

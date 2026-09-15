@@ -24,19 +24,22 @@ Os campos pedidos, mais alguns que valem a pena ter:
 | Nome da empresa | obrigatório |
 | Nome do cliente | obrigatório |
 | Email · Telefone · NIF | o email é validado |
-| Fase | Proposta · Em desenvolvimento · Concluído · Cancelado |
+| Fase | Contactado · Proposta · Em desenvolvimento · Concluído · Cancelado |
 | **Ainda é cliente** | ativo/inativo, independente da fase (um projeto concluído pode já não ser cliente) |
 | Valor do projeto + moeda | aceita `1250,75` ou `1250.75` (EUR/USD/GBP/BRL) |
+| **Site atual** | o site que o cliente tem hoje, antes do projeto |
 | Link de desenvolvimento | staging, enquanto está a ser feito |
 | Link final | site em produção |
 | Tem anuidade? | ativa os campos seguintes |
 | Valor da anuidade | |
 | Dias antes do alerta | por omissão 30 |
 | Data do próximo pagamento | base do cálculo dos alertas |
+| **Lembrete de follow-up** | data + o que fazer nesse dia; gera email no próprio dia |
 | Data de início · conclusão | |
 | Notas | texto livre |
 
-**Extras incluídos:** painel com o valor dos projetos repartido por fase
+**Extras incluídos:** lembretes de follow-up com email no dia marcado,
+painel com o valor dos projetos repartido por fase
 (concluídos, em proposta, em desenvolvimento e total), receita recorrente anual e pagamentos a chegar,
 histórico de pagamentos por cliente (com renovação automática da data), pesquisa
 e filtros, exportação para CSV, registo dos alertas enviados, e página de
@@ -45,6 +48,23 @@ definições com teste de email.
 ---
 
 ## Como funcionam os alertas
+
+Há dois tipos, ambos enviados pela mesma verificação diária.
+
+### Lembretes de follow-up
+
+Para não perder contactos: mandou um email a um cliente novo, marca a data em
+que quer voltar lá, e nesse dia recebe um email com os dados dele, a nota que
+escreveu e um link para a ficha.
+
+- Avisa **no próprio dia** marcado (as anuidades avisam com antecedência).
+- Sai **um email só** por data. Se ficar por fazer, continua a aparecer no
+  painel como atrasado, mas não volta a encher a caixa de correio.
+- **Marcar como feito** na ficha tira-o das listas sem perder o registo.
+- Marcar uma **data nova** volta a pô-lo por fazer e o aviso repete-se para
+  essa data.
+
+### Alertas de anuidade
 
 1. Todos os dias às 09:00 (configurável) a aplicação percorre os clientes
    **ativos com anuidade** e data de próximo pagamento definida.
@@ -343,7 +363,7 @@ src/
     login/               ecrã de acesso
   components/            formulários e UI
   lib/
-    db.ts                SQLite + esquema
+    db.ts                SQLite, esquema e migrações
     clientes.ts          consultas e estatísticas
     alertas.ts           motor de alertas e emails
     mail.ts              SMTP
@@ -355,6 +375,8 @@ deploy/                  nginx, systemd, backup
 scripts/                 hash-password, check-alerts
 testes/e2e.mjs           teste end-to-end de clientes e pagamentos
 testes/definicoes.mjs    teste end-to-end da configuração de email
+testes/followup.mjs      teste end-to-end dos lembretes de follow-up
+testes/migracao.mjs      verifica que uma base de dados antiga migra sem perdas
 ```
 
 ## Testes
@@ -365,7 +387,22 @@ npm run build
 # com a aplicação a correr:
 E2E_PASSWORD="a-sua-password" npm run test:e2e
 E2E_PASSWORD="a-sua-password" npm run test:definicoes
+E2E_PASSWORD="a-sua-password" npm run test:followup
+npm run test:migracao
 ```
+
+## Alterações ao esquema da base de dados
+
+A versão do esquema está em `PRAGMA user_version` e as migrações vivem em
+`src/lib/db.ts`, no array `MIGRACOES`. Correm sozinhas quando a aplicação
+arranca, por ordem e dentro de uma transação — não há passo manual no deploy.
+
+Para acrescentar uma alteração: junte uma entrada nova ao array com a versão
+seguinte. Nunca altere uma migração já publicada. Se a mudança mexer numa
+restrição `CHECK` (o SQLite não as altera com `ALTER TABLE`), use
+`recriarTabela`, que desliga as chaves estrangeiras para os pagamentos e
+alertas não serem apagados em cascata. O `testes/migracao.mjs` cobre
+exatamente esse caminho.
 
 ## Segurança
 

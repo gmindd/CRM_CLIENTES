@@ -4,11 +4,11 @@ import type { Cliente, ClienteComEstado, Pagamento, Fase } from "./types";
 import type { ClienteInput, PagamentoInput } from "./validation";
 
 const CAMPOS = `id, empresa, nome_cliente, email, telefone, nif, fase, cliente_ativo,
-  valor_projeto, moeda, link_desenvolvimento, link_final, tem_anuidade, valor_anuidade,
-  alerta_dias_antes, data_proximo_pagamento, data_inicio, data_conclusao, notas,
-  criado_em, atualizado_em`;
+  valor_projeto, moeda, site_atual, link_desenvolvimento, link_final, tem_anuidade,
+  valor_anuidade, alerta_dias_antes, data_proximo_pagamento, data_inicio, data_conclusao,
+  followup_data, followup_nota, followup_concluido, notas, criado_em, atualizado_em`;
 
-/** Acrescenta o estado do pagamento (vencido / alerta / agendado) a um cliente. */
+/** Acrescenta o estado do pagamento e do follow-up a um cliente. */
 export function comEstado(cliente: Cliente, hoje = hojeISO()): ClienteComEstado {
   const dias = cliente.tem_anuidade && cliente.cliente_ativo
     ? diasAte(cliente.data_proximo_pagamento, hoje)
@@ -21,7 +21,23 @@ export function comEstado(cliente: Cliente, hoje = hojeISO()): ClienteComEstado 
     else estado = "agendado";
   }
 
-  return { ...cliente, dias_para_pagamento: dias, estado_pagamento: estado };
+  const diasFollowup = diasAte(cliente.followup_data, hoje);
+  let estadoFollowup: ClienteComEstado["estado_followup"] = "sem_followup";
+  if (cliente.followup_data) {
+    if (cliente.followup_concluido) estadoFollowup = "feito";
+    else if (diasFollowup === null) estadoFollowup = "sem_followup";
+    else if (diasFollowup < 0) estadoFollowup = "atrasado";
+    else if (diasFollowup === 0) estadoFollowup = "hoje";
+    else estadoFollowup = "agendado";
+  }
+
+  return {
+    ...cliente,
+    dias_para_pagamento: dias,
+    estado_pagamento: estado,
+    dias_para_followup: cliente.followup_concluido ? null : diasFollowup,
+    estado_followup: estadoFollowup,
+  };
 }
 
 export interface FiltrosClientes {
@@ -29,7 +45,9 @@ export interface FiltrosClientes {
   fase?: Fase | "todas";
   apenasAtivos?: boolean;
   apenasAnuidade?: boolean;
-  ordem?: "recentes" | "empresa" | "pagamento" | "valor";
+  /** Só clientes com um follow-up marcado e ainda por fazer. */
+  apenasFollowup?: boolean;
+  ordem?: "recentes" | "empresa" | "pagamento" | "valor" | "followup";
 }
 
 export function listarClientes(filtros: FiltrosClientes = {}): ClienteComEstado[] {
@@ -47,6 +65,9 @@ export function listarClientes(filtros: FiltrosClientes = {}): ClienteComEstado[
   }
   if (filtros.apenasAtivos) where.push("cliente_ativo = 1");
   if (filtros.apenasAnuidade) where.push("tem_anuidade = 1");
+  if (filtros.apenasFollowup) {
+    where.push("followup_data IS NOT NULL AND followup_concluido = 0");
+  }
 
   const ordenacao =
     filtros.ordem === "empresa"
@@ -55,7 +76,9 @@ export function listarClientes(filtros: FiltrosClientes = {}): ClienteComEstado[
         ? "valor_projeto DESC"
         : filtros.ordem === "pagamento"
           ? "data_proximo_pagamento IS NULL, data_proximo_pagamento ASC"
-          : "id DESC";
+          : filtros.ordem === "followup"
+            ? "followup_data IS NULL, followup_data ASC"
+            : "id DESC";
 
   const sql = `SELECT ${CAMPOS} FROM clientes
     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
@@ -78,12 +101,14 @@ export function criarCliente(dados: ClienteInput): ClienteComEstado {
     .prepare(
       `INSERT INTO clientes (
         empresa, nome_cliente, email, telefone, nif, fase, cliente_ativo, valor_projeto, moeda,
-        link_desenvolvimento, link_final, tem_anuidade, valor_anuidade, alerta_dias_antes,
-        data_proximo_pagamento, data_inicio, data_conclusao, notas
+        site_atual, link_desenvolvimento, link_final, tem_anuidade, valor_anuidade,
+        alerta_dias_antes, data_proximo_pagamento, data_inicio, data_conclusao,
+        followup_data, followup_nota, notas
       ) VALUES (
         @empresa, @nome_cliente, @email, @telefone, @nif, @fase, @cliente_ativo, @valor_projeto, @moeda,
-        @link_desenvolvimento, @link_final, @tem_anuidade, @valor_anuidade, @alerta_dias_antes,
-        @data_proximo_pagamento, @data_inicio, @data_conclusao, @notas
+        @site_atual, @link_desenvolvimento, @link_final, @tem_anuidade, @valor_anuidade,
+        @alerta_dias_antes, @data_proximo_pagamento, @data_inicio, @data_conclusao,
+        @followup_data, @followup_nota, @notas
       )`,
     )
     .run(dados);
@@ -100,20 +125,32 @@ export function atualizarCliente(id: number, dados: ClienteInput): ClienteComEst
     `UPDATE clientes SET
       empresa = @empresa, nome_cliente = @nome_cliente, email = @email, telefone = @telefone,
       nif = @nif, fase = @fase, cliente_ativo = @cliente_ativo, valor_projeto = @valor_projeto,
-      moeda = @moeda, link_desenvolvimento = @link_desenvolvimento, link_final = @link_final,
-      tem_anuidade = @tem_anuidade, valor_anuidade = @valor_anuidade,
+      moeda = @moeda, site_atual = @site_atual, link_desenvolvimento = @link_desenvolvimento,
+      link_final = @link_final, tem_anuidade = @tem_anuidade, valor_anuidade = @valor_anuidade,
       alerta_dias_antes = @alerta_dias_antes, data_proximo_pagamento = @data_proximo_pagamento,
-      data_inicio = @data_inicio, data_conclusao = @data_conclusao, notas = @notas,
+      data_inicio = @data_inicio, data_conclusao = @data_conclusao,
+      followup_data = @followup_data, followup_nota = @followup_nota,
+      followup_concluido = @followup_concluido, notas = @notas,
       atualizado_em = datetime('now')
     WHERE id = @id`,
-  ).run({ ...dados, id });
+  ).run({
+    ...dados,
+    id,
+    // Marcar nova data de follow-up volta a pô-lo por fazer; manter a mesma
+    // data preserva o estado (feito / por fazer).
+    followup_concluido:
+      anterior.followup_data === dados.followup_data ? anterior.followup_concluido : 0,
+  });
 
-  // Se a data de vencimento mudou, os alertas antigos deixam de ser relevantes.
+  // Se as datas mudaram, os alertas já enviados deixam de ser relevantes:
+  // apagá-los permite que o novo vencimento (ou novo follow-up) volte a avisar.
   if (anterior.data_proximo_pagamento !== dados.data_proximo_pagamento) {
-    db.prepare("DELETE FROM alertas_enviados WHERE cliente_id = ? AND data_pagamento != ?").run(
-      id,
-      dados.data_proximo_pagamento ?? "",
-    );
+    db.prepare(
+      "DELETE FROM alertas_enviados WHERE cliente_id = ? AND tipo != 'followup' AND data_pagamento != ?",
+    ).run(id, dados.data_proximo_pagamento ?? "");
+  }
+  if (anterior.followup_data !== dados.followup_data) {
+    db.prepare("DELETE FROM alertas_enviados WHERE cliente_id = ? AND tipo = 'followup'").run(id);
   }
 
   return obterCliente(id);
@@ -191,6 +228,8 @@ export interface Estatisticas {
   receita_anual_recorrente: number;
   pagamentos_vencidos: number;
   pagamentos_a_chegar: number;
+  followups_pendentes: number;
+  followups_atrasados: number;
   recebido_12_meses: number;
 }
 
@@ -199,6 +238,7 @@ export function estatisticas(): Estatisticas {
   const db = getDb();
 
   const porFase: Record<Fase, number> = {
+    contactado: 0,
     proposta: 0,
     desenvolvimento: 0,
     concluido: 0,
@@ -212,6 +252,8 @@ export function estatisticas(): Estatisticas {
   let arr = 0;
   let vencidos = 0;
   let aChegar = 0;
+  let followupsPendentes = 0;
+  let followupsAtrasados = 0;
 
   for (const c of clientes) {
     porFase[c.fase] += 1;
@@ -222,6 +264,8 @@ export function estatisticas(): Estatisticas {
     if (c.tem_anuidade && c.cliente_ativo) arr += c.valor_anuidade ?? 0;
     if (c.estado_pagamento === "vencido") vencidos += 1;
     if (c.estado_pagamento === "alerta") aChegar += 1;
+    if (["atrasado", "hoje", "agendado"].includes(c.estado_followup)) followupsPendentes += 1;
+    if (c.estado_followup === "atrasado") followupsAtrasados += 1;
   }
 
   const recebido = db
@@ -239,6 +283,8 @@ export function estatisticas(): Estatisticas {
     receita_anual_recorrente: arredondar(arr),
     pagamentos_vencidos: vencidos,
     pagamentos_a_chegar: aChegar,
+    followups_pendentes: followupsPendentes,
+    followups_atrasados: followupsAtrasados,
     recebido_12_meses: arredondar(recebido.total),
   };
 }
@@ -248,4 +294,21 @@ export function proximosPagamentos(limite = 10): ClienteComEstado[] {
   return listarClientes({ apenasAnuidade: true, apenasAtivos: true, ordem: "pagamento" })
     .filter((c) => c.data_proximo_pagamento)
     .slice(0, limite);
+}
+
+/** Follow-ups por fazer, do mais atrasado para o mais distante. */
+export function followupsPendentes(limite = 10): ClienteComEstado[] {
+  return listarClientes({ apenasFollowup: true, ordem: "followup" }).slice(0, limite);
+}
+
+/** Marca o follow-up como feito, sem apagar a data (fica como histórico). */
+export function concluirFollowup(id: number): ClienteComEstado | null {
+  const db = getDb();
+  const alterou = db
+    .prepare(
+      `UPDATE clientes SET followup_concluido = 1, atualizado_em = datetime('now')
+       WHERE id = ? AND followup_data IS NOT NULL`,
+    )
+    .run(id).changes;
+  return alterou ? obterCliente(id) : null;
 }

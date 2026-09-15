@@ -12,7 +12,9 @@
     "hash-password": "node scripts/hash-password.mjs",
     "check-alerts": "node scripts/check-alerts.mjs",
     "test:e2e": "node testes/e2e.mjs ./testes",
-    "test:definicoes": "node testes/definicoes.mjs ./testes"
+    "test:definicoes": "node testes/definicoes.mjs ./testes",
+    "test:migracao": "node --experimental-strip-types --no-warnings testes/migracao.mjs",
+    "test:followup": "node testes/followup.mjs ./testes"
   },
   "dependencies": {
     "next": "16.3.5",

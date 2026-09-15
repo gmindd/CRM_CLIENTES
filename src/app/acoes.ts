@@ -7,6 +7,7 @@ import {
   apagarCliente,
   apagarPagamento,
   atualizarCliente,
+  concluirFollowup,
   criarCliente,
   registarPagamento,
 } from "@/lib/clientes";
@@ -81,6 +82,18 @@ export async function removerCliente(dados: FormData) {
   revalidatePath("/");
   revalidatePath("/clientes");
   redirect("/clientes");
+}
+
+/** Marca o follow-up de um cliente como feito (botão na ficha). */
+export async function marcarFollowupFeito(dados: FormData) {
+  await exigirSessao();
+  const id = Number(dados.get("id"));
+  if (Number.isFinite(id)) {
+    concluirFollowup(id);
+    revalidatePath("/");
+    revalidatePath(`/clientes/${id}`);
+    revalidatePath("/clientes");
+  }
 }
 
 export async function guardarPagamento(

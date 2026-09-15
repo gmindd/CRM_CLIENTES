@@ -1,7 +1,14 @@
-export const FASES = ["proposta", "desenvolvimento", "concluido", "cancelado"] as const;
+export const FASES = [
+  "contactado",
+  "proposta",
+  "desenvolvimento",
+  "concluido",
+  "cancelado",
+] as const;
 export type Fase = (typeof FASES)[number];
 
 export const FASE_LABEL: Record<Fase, string> = {
+  contactado: "Contactado",
   proposta: "Proposta",
   desenvolvimento: "Em desenvolvimento",
   concluido: "Concluído",
@@ -22,6 +29,7 @@ export interface Cliente {
   cliente_ativo: number;
   valor_projeto: number;
   moeda: string;
+  site_atual: string | null;
   link_desenvolvimento: string | null;
   link_final: string | null;
   tem_anuidade: number;
@@ -30,6 +38,9 @@ export interface Cliente {
   data_proximo_pagamento: string | null;
   data_inicio: string | null;
   data_conclusao: string | null;
+  followup_data: string | null;
+  followup_nota: string | null;
+  followup_concluido: number;
   notas: string | null;
   criado_em: string;
   atualizado_em: string;
@@ -59,4 +70,6 @@ export interface AlertaEnviado {
 export interface ClienteComEstado extends Cliente {
   dias_para_pagamento: number | null;
   estado_pagamento: "sem_anuidade" | "vencido" | "alerta" | "agendado";
+  dias_para_followup: number | null;
+  estado_followup: "sem_followup" | "feito" | "atrasado" | "hoje" | "agendado";
 }

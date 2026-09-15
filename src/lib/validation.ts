@@ -85,6 +85,7 @@ export const clienteSchema = z
       .length(3)
       .optional()
       .transform((v) => (v ? v.toUpperCase() : "EUR")),
+    site_atual: urlOpcional,
     link_desenvolvimento: urlOpcional,
     link_final: urlOpcional,
     tem_anuidade: booleano,
@@ -99,9 +100,18 @@ export const clienteSchema = z
     data_proximo_pagamento: dataOpcional,
     data_inicio: dataOpcional,
     data_conclusao: dataOpcional,
+    followup_data: dataOpcional,
+    followup_nota: textoOpcional,
     notas: textoOpcional,
   })
   .superRefine((dados, ctx) => {
+    if (dados.followup_nota && !dados.followup_data) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["followup_data"],
+        message: "Indique a data em que quer ser lembrado",
+      });
+    }
     if (dados.tem_anuidade === 1 && !dados.data_proximo_pagamento) {
       ctx.addIssue({
         code: "custom",

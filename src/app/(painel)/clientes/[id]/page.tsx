@@ -2,10 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listarPagamentos, obterCliente } from "@/lib/clientes";
 import { formatData, formatMoeda } from "@/lib/format";
-import { EtiquetaFase, EtiquetaPagamento, Linha } from "@/components/ui";
+import { EtiquetaFase, EtiquetaFollowup, EtiquetaPagamento, Linha } from "@/components/ui";
 import FormularioPagamento from "@/components/FormularioPagamento";
 import BotaoApagar from "@/components/BotaoApagar";
-import { removerCliente, removerPagamento } from "@/app/acoes";
+import { marcarFollowupFeito, removerCliente, removerPagamento } from "@/app/acoes";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +34,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
               <span className="etiqueta border-[var(--color-borda)] text-[var(--color-suave)]">Inativo</span>
             )}
             <EtiquetaPagamento cliente={cliente} />
+            <EtiquetaFollowup cliente={cliente} />
             <Link href={`/clientes/${cliente.id}/editar`} className="btn btn-secundario">
               Editar
             </Link>
@@ -71,6 +72,20 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
             <Linha rotulo="Valor">{formatMoeda(cliente.valor_projeto, cliente.moeda)}</Linha>
             <Linha rotulo="Início">{formatData(cliente.data_inicio)}</Linha>
             <Linha rotulo="Conclusão">{formatData(cliente.data_conclusao)}</Linha>
+            <Linha rotulo="Site atual">
+              {cliente.site_atual ? (
+                <a
+                  href={cliente.site_atual}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--color-marca)] hover:underline"
+                >
+                  {cliente.site_atual}
+                </a>
+              ) : (
+                "—"
+              )}
+            </Linha>
             <Linha rotulo="Link de desenvolvimento">
               {cliente.link_desenvolvimento ? (
                 <a
@@ -149,6 +164,36 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
         </div>
 
         <div className="space-y-6 lg:col-span-2">
+          {cliente.followup_data && (
+            <section className="cartao p-5">
+              <h2 className="mb-2 font-semibold">Follow-up</h2>
+              <Linha rotulo="Marcado para">{formatData(cliente.followup_data)}</Linha>
+              {cliente.followup_nota && <Linha rotulo="A fazer">{cliente.followup_nota}</Linha>}
+              <Linha rotulo="Estado">
+                {cliente.estado_followup === "feito" ? (
+                  <span className="text-emerald-600 dark:text-emerald-400">Feito</span>
+                ) : cliente.estado_followup === "atrasado" ? (
+                  <span className="text-red-600 dark:text-red-400">
+                    Atrasado {Math.abs(cliente.dias_para_followup ?? 0)} dias
+                  </span>
+                ) : cliente.estado_followup === "hoje" ? (
+                  <span className="text-[var(--color-marca)]">É hoje</span>
+                ) : (
+                  `Faltam ${cliente.dias_para_followup} dias`
+                )}
+              </Linha>
+
+              {cliente.estado_followup !== "feito" && (
+                <form action={marcarFollowupFeito} className="mt-3">
+                  <input type="hidden" name="id" value={cliente.id} />
+                  <button type="submit" className="btn btn-secundario w-full">
+                    Marcar follow-up como feito
+                  </button>
+                </form>
+              )}
+            </section>
+          )}
+
           <section className="cartao p-5">
             <h2 className="mb-2 font-semibold">Anuidade</h2>
             {cliente.tem_anuidade ? (

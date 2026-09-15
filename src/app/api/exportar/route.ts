@@ -17,6 +17,7 @@ const COLUNAS = [
   "cliente_ativo",
   "valor_projeto",
   "moeda",
+  "site_atual",
   "link_desenvolvimento",
   "link_final",
   "tem_anuidade",
@@ -25,6 +26,9 @@ const COLUNAS = [
   "data_proximo_pagamento",
   "data_inicio",
   "data_conclusao",
+  "followup_data",
+  "followup_nota",
+  "followup_concluido",
   "notas",
   "criado_em",
 ] as const;

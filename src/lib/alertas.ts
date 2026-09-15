@@ -1,20 +1,93 @@
 import { getDb } from "./db";
-import { listarClientes } from "./clientes";
+import { listarClientes, followupsPendentes } from "./clientes";
 import { enviarEmail, destinatarioAlertas, emailConfigurado } from "./mail";
 import { valorConfig } from "./config";
 import { formatData, formatMoeda, hojeISO } from "./format";
-import type { ClienteComEstado } from "./types";
+import { FASE_LABEL, type ClienteComEstado } from "./types";
 
 export interface ResultadoAlertas {
   verificados: number;
   enviados: number;
   ignorados: number;
   erros: string[];
-  detalhes: Array<{ cliente: string; dias: number; tipo: "aviso" | "vencido"; estado: string }>;
+  detalhes: Array<{ cliente: string; dias: number; tipo: TipoAlerta; estado: string }>;
 }
+
+export type TipoAlerta = "aviso" | "vencido" | "followup";
 
 function urlBase(): string {
   return (valorConfig("APP_URL") || "https://crm.pereiragabriel.com").replace(/\/$/, "");
+}
+
+/** Email do lembrete de follow-up: contactei o cliente, está na hora de voltar lá. */
+function corpoFollowup(cliente: ClienteComEstado, dias: number) {
+  const data = formatData(cliente.followup_data);
+  const link = `${urlBase()}/clientes/${cliente.id}`;
+
+  const titulo =
+    dias < 0
+      ? `Follow-up atrasado ${Math.abs(dias)} dia(s)`
+      : "Follow-up marcado para hoje";
+
+  const linhas: Array<[string, string]> = [
+    ["Empresa", cliente.empresa],
+    ["Contacto", cliente.nome_cliente],
+    ["Email", cliente.email || "—"],
+    ["Telefone", cliente.telefone || "—"],
+    ["Fase", FASE_LABEL[cliente.fase]],
+    ["Site atual", cliente.site_atual || "—"],
+    ["Marcado para", data],
+  ];
+
+  const nota = cliente.followup_nota;
+
+  const texto = [
+    titulo,
+    "",
+    ...(nota ? [`Lembrete: ${nota}`, ""] : []),
+    ...linhas.map(([k, v]) => `${k}: ${v}`),
+    "",
+    `Ver no CRM: ${link}`,
+  ].join("\n");
+
+  const html = `<!doctype html>
+<html lang="pt"><body style="margin:0;padding:24px;background:#f4f4f5;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#18181b">
+  <table role="presentation" style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e4e4e7;border-collapse:separate">
+    <tr><td style="padding:24px 28px;border-bottom:1px solid #e4e4e7">
+      <p style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:${dias < 0 ? "#b91c1c" : "#4f46e5"}">
+        Lembrete de follow-up
+      </p>
+      <h1 style="margin:0;font-size:20px;line-height:1.3">${escapar(titulo)}</h1>
+    </td></tr>
+    ${
+      nota
+        ? `<tr><td style="padding:18px 28px 0">
+             <p style="margin:0;padding:12px 14px;background:#f4f4f5;border-radius:8px;font-size:14px;white-space:pre-wrap">${escapar(nota)}</p>
+           </td></tr>`
+        : ""
+    }
+    <tr><td style="padding:20px 28px">
+      <table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px">
+        ${linhas
+          .map(
+            ([k, v]) =>
+              `<tr><td style="padding:6px 0;color:#71717a;width:45%">${k}</td><td style="padding:6px 0;font-weight:600">${escapar(v)}</td></tr>`,
+          )
+          .join("")}
+      </table>
+    </td></tr>
+    <tr><td style="padding:0 28px 28px">
+      <a href="${link}" style="display:inline-block;background:#18181b;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600">Abrir no CRM</a>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  const assunto =
+    dias < 0
+      ? `[CRM] Follow-up atrasado — ${cliente.empresa}`
+      : `[CRM] Follow-up hoje — ${cliente.empresa}`;
+
+  return { assunto, html, texto };
 }
 
 function corpoEmail(cliente: ClienteComEstado, dias: number, tipo: "aviso" | "vencido") {
@@ -112,11 +185,11 @@ export async function verificarAlertas(
   );
   resultado.verificados = candidatos.length;
 
-  if (candidatos.length && !opcoes.simulacao && !emailConfigurado()) {
+  const semEmail = !opcoes.simulacao && !emailConfigurado();
+  if (candidatos.length && semEmail) {
     resultado.erros.push(
       "Envio de email por configurar — indique o servidor SMTP na página de Definições",
     );
-    return resultado;
   }
 
   const jaEnviado = db.prepare(
@@ -127,7 +200,7 @@ export async function verificarAlertas(
      VALUES (?, ?, ?, ?, ?, datetime('now'))`,
   );
 
-  for (const cliente of candidatos) {
+  for (const cliente of semEmail ? [] : candidatos) {
     const dias = cliente.dias_para_pagamento!;
     const tipo: "aviso" | "vencido" = dias < 0 ? "vencido" : "aviso";
 
@@ -173,6 +246,75 @@ export async function verificarAlertas(
     }
   }
 
+  // ---- Lembretes de follow-up ----
+  //
+  // Ao contrário das anuidades (que avisam com dias de antecedência), o
+  // follow-up avisa no próprio dia marcado. Se ficar por fazer, o email sai
+  // uma vez só; o CRM continua a mostrá-lo como atrasado.
+  const followups = followupsPendentes(500).filter(
+    (c) => c.fase !== "cancelado" && c.dias_para_followup !== null && c.dias_para_followup <= 0,
+  );
+  resultado.verificados += followups.length;
+
+  if (followups.length && !opcoes.simulacao && !emailConfigurado()) {
+    if (resultado.erros.length === 0) {
+      resultado.erros.push(
+        "Envio de email por configurar — indique o servidor SMTP na página de Definições",
+      );
+    }
+    return resultado;
+  }
+
+  for (const cliente of followups) {
+    const dias = cliente.dias_para_followup!;
+
+    const enviadoAntes = !opcoes.reenviar
+      ? jaEnviado.get(cliente.id, cliente.followup_data, "followup")
+      : undefined;
+
+    if (enviadoAntes) {
+      resultado.ignorados += 1;
+      resultado.detalhes.push({
+        cliente: cliente.empresa,
+        dias,
+        tipo: "followup",
+        estado: "já enviado",
+      });
+      continue;
+    }
+
+    if (opcoes.simulacao) {
+      resultado.detalhes.push({
+        cliente: cliente.empresa,
+        dias,
+        tipo: "followup",
+        estado: "seria enviado",
+      });
+      continue;
+    }
+
+    try {
+      await enviarEmail(corpoFollowup(cliente, dias));
+      registar.run(cliente.id, cliente.followup_data, "followup", 0, destinatarioAlertas());
+      resultado.enviados += 1;
+      resultado.detalhes.push({
+        cliente: cliente.empresa,
+        dias,
+        tipo: "followup",
+        estado: "enviado",
+      });
+    } catch (erro) {
+      const mensagem = erro instanceof Error ? erro.message : String(erro);
+      resultado.erros.push(`${cliente.empresa} (follow-up): ${mensagem}`);
+      resultado.detalhes.push({
+        cliente: cliente.empresa,
+        dias,
+        tipo: "followup",
+        estado: `erro: ${mensagem}`,
+      });
+    }
+  }
+
   console.log(
     `[alertas] ${hoje} — verificados: ${resultado.verificados}, enviados: ${resultado.enviados}, ignorados: ${resultado.ignorados}, erros: ${resultado.erros.length}`,
   );
@@ -194,7 +336,7 @@ export function historicoAlertas(limite = 50) {
     id: number;
     cliente_id: number;
     data_pagamento: string;
-    tipo: "aviso" | "vencido";
+    tipo: TipoAlerta;
     dias_antes: number | null;
     destinatario: string | null;
     enviado_em: string;

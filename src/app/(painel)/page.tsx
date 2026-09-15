@@ -1,13 +1,25 @@
 import Link from "next/link";
-import { estatisticas, listarClientes, proximosPagamentos } from "@/lib/clientes";
+import {
+  estatisticas,
+  followupsPendentes,
+  listarClientes,
+  proximosPagamentos,
+} from "@/lib/clientes";
 import { formatData, formatMoeda } from "@/lib/format";
-import { CartaoEstatistica, EtiquetaFase, EtiquetaPagamento, Vazio } from "@/components/ui";
+import {
+  CartaoEstatistica,
+  EtiquetaFase,
+  EtiquetaFollowup,
+  EtiquetaPagamento,
+  Vazio,
+} from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function Painel() {
   const stats = estatisticas();
   const proximos = proximosPagamentos(8);
+  const followups = followupsPendentes(8);
   const recentes = listarClientes({ ordem: "recentes" }).slice(0, 5);
 
   return (
@@ -19,7 +31,7 @@ export default async function Painel() {
         </p>
       </div>
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <CartaoEstatistica
           titulo="Clientes"
           valor={String(stats.total_clientes)}
@@ -47,6 +59,17 @@ export default async function Painel() {
                 ? "aviso"
                 : "normal"
           }
+        />
+        <CartaoEstatistica
+          titulo="Follow-ups"
+          valor={String(stats.followups_pendentes)}
+          nota={
+            stats.followups_atrasados > 0
+              ? `${stats.followups_atrasados} atrasado(s)`
+              : "por fazer"
+          }
+          destaque={stats.followups_atrasados > 0 ? "perigo" : "normal"}
+          href="/clientes?followup=1&ordem=followup"
         />
         <CartaoEstatistica
           titulo="Recebido (12 meses)"
@@ -90,6 +113,39 @@ export default async function Painel() {
           />
         </div>
       </section>
+
+      {followups.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-semibold">Follow-ups a fazer</h2>
+            <Link href="/clientes?followup=1&ordem=followup" className="text-sm text-[var(--color-marca)]">
+              Ver todos
+            </Link>
+          </div>
+          <ul className="cartao divide-y divide-[var(--color-borda)]">
+            {followups.map((cliente) => (
+              <li key={cliente.id}>
+                <Link
+                  href={`/clientes/${cliente.id}`}
+                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--color-texto)]/5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{cliente.empresa}</p>
+                    <p className="truncate text-xs text-[var(--color-suave)]">
+                      {formatData(cliente.followup_data)}
+                      {cliente.followup_nota ? ` · ${cliente.followup_nota}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <EtiquetaFase fase={cliente.fase} />
+                    <EtiquetaFollowup cliente={cliente} />
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section>
         <div className="mb-3 flex items-center justify-between">

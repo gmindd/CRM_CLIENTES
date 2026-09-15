@@ -2,7 +2,7 @@ import Link from "next/link";
 import { listarClientes, type FiltrosClientes } from "@/lib/clientes";
 import { FASES, FASE_LABEL, type Fase } from "@/lib/types";
 import { formatData, formatMoeda } from "@/lib/format";
-import { EtiquetaFase, EtiquetaPagamento, Vazio } from "@/components/ui";
+import { EtiquetaFase, EtiquetaFollowup, EtiquetaPagamento, Vazio } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +11,7 @@ type Params = {
   fase?: string;
   ativo?: string;
   anuidade?: string;
+  followup?: string;
   ordem?: string;
 };
 
@@ -26,7 +27,10 @@ export default async function ListaClientes({ searchParams }: { searchParams: Pr
     fase,
     apenasAtivos: params.ativo === "1",
     apenasAnuidade: params.anuidade === "1",
-    ordem: (["recentes", "empresa", "pagamento", "valor"] as const).includes(params.ordem as never)
+    apenasFollowup: params.followup === "1",
+    ordem: (["recentes", "empresa", "pagamento", "valor", "followup"] as const).includes(
+      params.ordem as never,
+    )
       ? (params.ordem as FiltrosClientes["ordem"])
       : "recentes",
   };
@@ -85,6 +89,7 @@ export default async function ListaClientes({ searchParams }: { searchParams: Pr
             <option value="recentes">Mais recentes</option>
             <option value="empresa">Empresa (A-Z)</option>
             <option value="pagamento">Próximo pagamento</option>
+            <option value="followup">Próximo follow-up</option>
             <option value="valor">Valor do projeto</option>
           </select>
         </div>
@@ -97,6 +102,10 @@ export default async function ListaClientes({ searchParams }: { searchParams: Pr
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="anuidade" value="1" defaultChecked={filtros.apenasAnuidade} />
             Apenas com anuidade
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="followup" value="1" defaultChecked={filtros.apenasFollowup} />
+            Com follow-up por fazer
           </label>
         </div>
 
@@ -145,6 +154,11 @@ export default async function ListaClientes({ searchParams }: { searchParams: Pr
                           {cliente.nome_cliente}
                           {cliente.cliente_ativo === 0 && " · inativo"}
                         </span>
+                        {["atrasado", "hoje"].includes(cliente.estado_followup) && (
+                          <span className="mt-1.5 block">
+                            <EtiquetaFollowup cliente={cliente} />
+                          </span>
+                        )}
                       </Link>
                     </td>
                     <td className="px-4 py-3">

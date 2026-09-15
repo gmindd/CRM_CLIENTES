@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FASE_LABEL, type Fase, type ClienteComEstado } from "@/lib/types";
 
 const CORES_FASE: Record<Fase, string> = {
+  contactado: "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/25",
   proposta: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/25",
   desenvolvimento: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/25",
   concluido: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25",
@@ -35,6 +36,33 @@ export function EtiquetaPagamento({ cliente }: { cliente: ClienteComEstado }) {
       Faltam {dias} d
     </span>
   );
+}
+
+export function EtiquetaFollowup({ cliente }: { cliente: ClienteComEstado }) {
+  const dias = cliente.dias_para_followup;
+
+  if (cliente.estado_followup === "atrasado" && dias !== null) {
+    return (
+      <span className="etiqueta border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-400">
+        Follow-up há {Math.abs(dias)} d
+      </span>
+    );
+  }
+  if (cliente.estado_followup === "hoje") {
+    return (
+      <span className="etiqueta border-[var(--color-marca)]/30 bg-[var(--color-marca)]/10 text-[var(--color-marca)]">
+        Follow-up hoje
+      </span>
+    );
+  }
+  if (cliente.estado_followup === "agendado" && dias !== null) {
+    return (
+      <span className="etiqueta border-[var(--color-borda)] bg-transparent text-[var(--color-suave)]">
+        Follow-up em {dias} d
+      </span>
+    );
+  }
+  return null;
 }
 
 export function CartaoEstatistica({
